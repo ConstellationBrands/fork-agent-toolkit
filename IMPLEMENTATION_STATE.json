@@ -5,34 +5,74 @@
   "phases": {
     "phase1": {
       "name": "Enhanced agents.py with AgentService Class",
-      "status": "committed",
+      "status": "complete_needs_tests",
       "completed_at": "2025-08-18T10:35:16-04:00",
       "committed_at": "2025-08-18T12:38:20-04:00",
       "commit_hash": "5464373",
       "verification_tests": [
-        "AgentService import successful",
-        "Legacy imports still work",
-        "AgentService created",
-        "Legacy agent access works",
-        "Pre-commit checks passing",
-        "All changes committed"
+        "✅ AgentService import successful",
+        "✅ Legacy imports still work",
+        "✅ AgentService decorator registration works",
+        "✅ Agent factory functions work correctly",
+        "✅ Legacy agent access works",
+        "✅ Pre-commit checks passing",
+        "✅ All changes committed"
       ],
-      "notes": "Phase 1 fully complete with all pre-commit issues resolved. Ready for Phase 2 when approved."
+      "functionality_tests": [
+        "✅ @app.agent() decorator pattern works",
+        "✅ Agent registration and retrieval works",
+        "✅ FastAPI app creation works",
+        "✅ Enhanced agent resolution works",
+        "✅ Legacy fallback works correctly"
+      ],
+      "notes": "Phase 1 functionality complete and verified working. Needs comprehensive unit and integration tests added to test suite."
     },
     "phase2": {
       "name": "Enhanced service.py with AgentService Support",
-      "status": "completed",
+      "status": "complete_needs_tests",
       "completed_at": "2025-08-18T13:03:32-04:00",
+      "committed_at": "2025-08-18T13:05:13-04:00",
+      "commit_hash": "127e2f6",
       "verification_tests": [
-        "Enhanced service functions available",
-        "Enhanced FastAPI app created",
-        "Legacy service app still available",
-        "Enhanced agent resolution works"
+        "✅ Enhanced service functions available",
+        "✅ Enhanced FastAPI app created",
+        "✅ Legacy service app still available",
+        "✅ Enhanced agent resolution with fallback works",
+        "✅ All existing tests pass (63/63)",
+        "✅ Pre-commit checks passing",
+        "✅ All changes committed"
       ],
-      "notes": "Phase 2 complete: Added enhanced_lifespan, create_enhanced_app, get_agent_with_service, and updated route handlers to support AgentService instances while maintaining full backward compatibility."
+      "functionality_tests": [
+        "✅ simple_react_agent.py example works completely",
+        "✅ HTTP endpoints work with AgentService agents",
+        "✅ Enhanced lifespan management works",
+        "✅ Agent registration via decorators works",
+        "✅ 100% backward compatibility maintained"
+      ],
+      "notes": "Phase 2 complete with full functionality verified. All existing tests pass. Example applications work correctly. Needs dedicated unit, integration, and E2E tests for AgentService functionality."
     }
   },
+  "testing_requirements": {
+    "unit_tests": [
+      "AgentService class methods (@app.agent, get_agent, create_app)",
+      "Agent factory function execution",
+      "Enhanced lifespan management",
+      "Agent resolution logic"
+    ],
+    "integration_tests": [
+      "HTTP endpoints with AgentService agents",
+      "Enhanced vs legacy agent resolution",
+      "Mixed legacy and AgentService agent environments",
+      "FastAPI app integration"
+    ],
+    "e2e_tests": [
+      "Example applications via HTTP API",
+      "Full agent lifecycle (register -> serve -> invoke)",
+      "Streaming with AgentService agents"
+    ]
+  },
   "next_actions": [
+    "Add comprehensive test suite for Phase 1 & 2 functionality",
     "Phase 3: MCP Integration Support"
   ]
 }
