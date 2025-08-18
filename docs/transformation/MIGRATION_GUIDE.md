@@ -45,7 +45,7 @@ if __name__ == "__main__":
 - ❌ No automatic MCP integration
 - ❌ Cannot distribute as standalone package
 
-### After Migration  
+### After Migration
 - ✅ All existing functionality preserved
 - ✅ Clean separation via decorators
 - ✅ Automatic persistence and lifecycle management
@@ -157,7 +157,7 @@ from agents import AgentService
 # All in src/agents/agents.py
 agents = {
     "agent1": Agent(...),
-    "agent2": Agent(...), 
+    "agent2": Agent(...),
     "agent3": Agent(...),
 }
 ```
@@ -172,7 +172,7 @@ app = AgentService(mcp_servers=["npx -y @mcp/thinking"])
 def create_agent1():
     return agent1_graph
 
-@app.agent("agent2") 
+@app.agent("agent2")
 def create_agent2():
     return agent2_graph
 
@@ -189,7 +189,7 @@ def create_agent3():
 ```python
 AgentService(
     checkpointer: str = "auto",      # Database for conversation memory
-    store: str = "auto",             # Long-term memory store  
+    store: str = "auto",             # Long-term memory store
     mcp_servers: List[str] = None,   # MCP server configurations
     **kwargs
 )
@@ -226,7 +226,7 @@ app.run(host="0.0.0.0", port=8000, reload=True)
 Each registered agent automatically gets these endpoints:
 
 - `POST /{agent_name}/invoke` - Synchronous invocation
-- `POST /{agent_name}/stream` - Streaming invocation  
+- `POST /{agent_name}/stream` - Streaming invocation
 - `GET /info` - Service and agent information
 
 ### Request/Response Format
@@ -259,7 +259,7 @@ Each registered agent automatically gets these endpoints:
 OPENAI_API_KEY=sk-...
 # OR
 ANTHROPIC_API_KEY=...
-# OR  
+# OR
 GOOGLE_API_KEY=...
 ```
 
@@ -299,7 +299,7 @@ app = AgentService(
 ```python
 app = AgentService(mcp_servers=[
     "npx -y @modelcontextprotocol/server-sequential-thinking",
-    "npx -y @modelcontextprotocol/server-filesystem", 
+    "npx -y @modelcontextprotocol/server-filesystem",
     "github.com/example/custom-mcp-server"
 ])
 ```

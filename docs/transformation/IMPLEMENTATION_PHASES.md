@@ -14,7 +14,7 @@ This document provides directional instructions for implementing all 6 transform
 
 **Requirements:**
 - ADD `AgentService` class at the END of existing file (after all existing code)
-- IMPLEMENT FastAPI-style decorator pattern with `@app.agent(name, description)` 
+- IMPLEMENT FastAPI-style decorator pattern with `@app.agent(name, description)`
 - SUPPORT agent registration via decorator that stores `AgentFactory` callables
 - INCLUDE initialization parameters: `checkpointer`, `store`, `mcp_servers`
 - MAINTAIN internal registries: `_agents: Dict[str, AgentFactory]` and `_agent_descriptions`
@@ -34,7 +34,7 @@ This document provides directional instructions for implementing all 6 transform
 
 **Requirements:**
 - ADD `get_agent_enhanced()` function that checks AgentService first, then falls back to legacy
-- ADD `get_all_agent_info_enhanced()` function that combines legacy and AgentService agents  
+- ADD `get_all_agent_info_enhanced()` function that combines legacy and AgentService agents
 - UPDATE `__all__` exports to include new functionality
 - MAINTAIN 100% backward compatibility with existing functions
 
@@ -224,7 +224,7 @@ print('✅ MCP Integration created')
 # Test CLI import
 cd src && python -c "from agents.cli import main; print('✅ CLI import successful')"
 
-# Test package build (dry run)  
+# Test package build (dry run)
 python -m build --wheel --outdir dist/
 
 # Test CLI help
@@ -253,7 +253,7 @@ cd src && python -m agents.cli --help
 - VERIFY agent registry management
 - TEST error handling and edge cases
 
-### 5.2 Service Integration Tests  
+### 5.2 Service Integration Tests
 
 **File**: `tests/service/test_enhanced_service.py` (NEW file)
 
@@ -356,7 +356,7 @@ cd examples/enhanced_framework && python -m agents.cli run main.py:app --help
 This completes all 6 phases of the Agent Service Toolkit transformation:
 
 1. **Phase 1**: Enhanced `agents.py` with `AgentService` class
-2. **Phase 2**: Enhanced `service.py` with AgentService support  
+2. **Phase 2**: Enhanced `service.py` with AgentService support
 3. **Phase 3**: MCP integration capabilities
 4. **Phase 4**: Package configuration and CLI
 5. **Phase 5**: Comprehensive testing framework
