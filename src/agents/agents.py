@@ -155,6 +155,15 @@ class AgentService:
         try:
             import uvicorn
 
+            if reload:
+                # When reload=True, uvicorn needs an import string
+                # Disable reload and warn user about the limitation
+                logger.warning(
+                    "Auto-reload is not supported when running AgentService directly. "
+                    "Use CLI with 'python -m agents.cli run app.py:app --reload' for reload support."
+                )
+                reload = False
+
             app = self.create_app()
 
             uvicorn.run(
@@ -162,7 +171,7 @@ class AgentService:
                 host=host,
                 port=port,
                 reload=reload,
-                log_level="info",  # Default log level
+                log_level="info",
             )
         except ImportError:
             logger.error(

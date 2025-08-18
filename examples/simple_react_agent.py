@@ -19,7 +19,7 @@ app = AgentService()
 @app.agent("math-helper", description="Simple math assistant using React pattern")
 def create_math_agent():
     """Create a React agent that can do math calculations."""
-    model = get_model("gpt-3.5-turbo")
+    model = get_model("openai-compatible")
 
     # Use LangGraph's prebuilt create_react_agent for automatic ReAct pattern
     return create_react_agent(model=model, tools=[calculator])
