@@ -56,3 +56,166 @@ def get_all_agent_info() -> list[AgentInfo]:
     return [
         AgentInfo(key=agent_id, description=agent.description) for agent_id, agent in agents.items()
     ]
+
+
+# Enhanced Framework - AgentService Class and Supporting Functions
+# This section adds FastAPI-style functionality while maintaining 100% backward compatibility
+
+from typing import AsyncGenerator, Callable, Dict, List, Optional
+import asyncio
+import logging
+
+# Type alias for agent factory functions
+AgentFactory = Callable[[], AgentGraph]
+
+logger = logging.getLogger(__name__)
+
+
+class AgentService:
+    """
+    FastAPI-style service for registering and managing agents.
+    
+    This class provides a decorator-based API similar to FastAPI routes,
+    allowing developers to register agents using @app.agent() decorators.
+    """
+    
+    def __init__(
+        self,
+        checkpointer=None,
+        store=None,
+        mcp_servers: Optional[List[str]] = None
+    ):
+        """
+        Initialize the AgentService.
+        
+        Args:
+            checkpointer: Optional checkpointer for agent persistence
+            store: Optional store for agent data
+            mcp_servers: Optional list of MCP server configurations
+        """
+        self._agents: Dict[str, AgentFactory] = {}
+        self._agent_descriptions: Dict[str, str] = {}
+        self._checkpointer = checkpointer
+        self._store = store
+        self._mcp_servers = mcp_servers or []
+        
+    def agent(self, name: str, description: str = ""):
+        """
+        Decorator for registering agent factory functions.
+        
+        Usage:
+            @app.agent("my-bot", description="My custom bot")
+            def create_my_bot():
+                return compiled_langgraph_agent
+        
+        Args:
+            name: Unique name for the agent
+            description: Human-readable description of the agent
+        """
+        def decorator(factory_func: AgentFactory) -> AgentFactory:
+            if name in self._agents:
+                logger.warning(f"Agent '{name}' is being overridden")
+            
+            self._agents[name] = factory_func
+            self._agent_descriptions[name] = description
+            logger.info(f"Registered agent: {name}")
+            return factory_func
+        
+        return decorator
+    
+    def get_agent(self, agent_id: str) -> AgentGraph:
+        """Get an agent by ID from the AgentService registry."""
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent '{agent_id}' not found in AgentService registry")
+        
+        factory = self._agents[agent_id]
+        return factory()
+    
+    def get_agent_info(self) -> List[AgentInfo]:
+        """Get information about all registered agents."""
+        return [
+            AgentInfo(key=agent_id, description=description)
+            for agent_id, description in self._agent_descriptions.items()
+        ]
+    
+    def create_app(self):
+        """
+        Create a FastAPI application with this AgentService instance.
+        
+        This method imports and calls the enhanced service creation function
+        from the service module.
+        """
+        from service.service import create_enhanced_app
+        return create_enhanced_app(self)
+    
+    def run(self, host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
+        """
+        Run the AgentService using uvicorn.
+        
+        Args:
+            host: Host to bind to
+            port: Port to bind to
+            reload: Enable auto-reload for development
+        """
+        try:
+            import uvicorn
+            from core.settings import get_settings
+            
+            settings = get_settings()
+            app = self.create_app()
+            
+            uvicorn.run(
+                app,
+                host=host,
+                port=port,
+                reload=reload,
+                log_level=settings.log_level.lower()
+            )
+        except ImportError:
+            logger.error("uvicorn is required to run the AgentService. Install with: pip install uvicorn")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to run AgentService: {e}")
+            raise
+
+
+def get_agent_enhanced(agent_id: str) -> AgentGraph:
+    """
+    Enhanced agent retrieval that checks AgentService registries first,
+    then falls back to legacy agents dictionary.
+    
+    This function maintains backward compatibility while enabling
+    enhanced functionality when available.
+    """
+    # Note: In a full implementation, this would check if there's an
+    # active AgentService instance. For now, it falls back to legacy.
+    return get_agent(agent_id)
+
+
+def get_all_agent_info_enhanced() -> List[AgentInfo]:
+    """
+    Enhanced agent info retrieval that combines information from
+    both legacy agents and any active AgentService instances.
+    """
+    # Start with legacy agents
+    all_info = get_all_agent_info()
+    
+    # Note: In a full implementation, this would also include
+    # agents from any active AgentService instances.
+    
+    return all_info
+
+
+# Update __all__ to include new functionality
+__all__ = [
+    'DEFAULT_AGENT',
+    'AgentGraph', 
+    'Agent',
+    'agents',
+    'get_agent',
+    'get_all_agent_info',
+    'AgentService',
+    'AgentFactory',
+    'get_agent_enhanced',
+    'get_all_agent_info_enhanced',
+]
