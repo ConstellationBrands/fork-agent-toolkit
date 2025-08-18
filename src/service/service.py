@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_core._api import LangChainBetaWarning
@@ -39,6 +39,127 @@ from service.utils import (
 
 warnings.filterwarnings("ignore", category=LangChainBetaWarning)
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def enhanced_lifespan(
+    app: FastAPI, agent_service_instance=None
+) -> AsyncGenerator[None, None]:
+    """
+    Enhanced lifespan manager that supports both legacy agents and AgentService instances.
+    """
+    try:
+        # Initialize both checkpointer (for short-term memory) and store (for long-term memory)
+        async with initialize_database() as saver, initialize_store() as store:
+            # Set up both components
+            if hasattr(saver, "setup"):  # ignore: union-attr
+                await saver.setup()
+            # Only setup store for Postgres as InMemoryStore doesn't need setup
+            if hasattr(store, "setup"):  # ignore: union-attr
+                await store.setup()
+
+            # Configure legacy agents with both memory components
+            agents = get_all_agent_info()
+            for a in agents:
+                agent = get_agent(a.key)
+                # Set checkpointer for thread-scoped memory (conversation history)
+                agent.checkpointer = saver
+                # Set store for long-term memory (cross-conversation knowledge)
+                agent.store = store
+
+            # Configure AgentService agents if provided
+            if agent_service_instance:
+                app.state.agent_service = agent_service_instance
+                app.state.configured_agents = {}
+
+                # Initialize MCP connections if configured
+                if (
+                    hasattr(agent_service_instance, "_mcp_servers")
+                    and agent_service_instance._mcp_servers
+                ):
+                    try:
+                        # TODO: Add MCP integration in Phase 3
+                        logger.info(
+                            f"MCP servers configured: {len(agent_service_instance._mcp_servers)}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error initializing MCP connections: {e}")
+
+                # Configure each AgentService agent
+                for agent_id, agent_factory in agent_service_instance._agents.items():
+                    try:
+                        agent = agent_factory()
+                        agent.checkpointer = saver
+                        agent.store = store
+                        app.state.configured_agents[agent_id] = agent
+                        logger.info(f"Configured AgentService agent: {agent_id}")
+                    except Exception as e:
+                        logger.error(f"Error configuring AgentService agent {agent_id}: {e}")
+
+            yield
+    except Exception as e:
+        logger.error(f"Error during enhanced database/store initialization: {e}")
+        raise
+
+
+def create_enhanced_app(agent_service_instance=None) -> FastAPI:
+    """
+    Create a FastAPI app with enhanced AgentService support.
+
+    Args:
+        agent_service_instance: Optional AgentService instance for enhanced functionality
+
+    Returns:
+        FastAPI app configured with enhanced lifespan and routing
+    """
+    enhanced_app = FastAPI(lifespan=lambda app: enhanced_lifespan(app, agent_service_instance))
+
+    # Include the existing router
+    enhanced_app.include_router(router)
+
+    # Add health endpoint
+    @enhanced_app.get("/health")
+    async def health_check():
+        """Health check endpoint."""
+        health_status = {"status": "ok"}
+
+        if settings.LANGFUSE_TRACING:
+            try:
+                langfuse = Langfuse()
+                health_status["langfuse"] = "connected" if langfuse.auth_check() else "disconnected"
+            except Exception as e:
+                logger.error(f"Langfuse connection error: {e}")
+                health_status["langfuse"] = "disconnected"
+
+        return health_status
+
+    return enhanced_app
+
+
+def get_agent_with_service(agent_id: str, request=None) -> AgentGraph:
+    """
+    Enhanced agent resolution that checks AgentService first, then falls back to legacy.
+
+    Args:
+        agent_id: The agent identifier
+        request: Optional FastAPI request for accessing app state
+
+    Returns:
+        AgentGraph instance
+    """
+    # Check for AgentService agents first
+    if request and hasattr(request.app.state, "configured_agents"):
+        if agent_id in request.app.state.configured_agents:
+            return request.app.state.configured_agents[agent_id]
+
+    # Check AgentService registry if configured_agents not found
+    if request and hasattr(request.app.state, "agent_service"):
+        agent_service = request.app.state.agent_service
+        if agent_id in agent_service._agents:
+            return agent_service._agents[agent_id]()
+
+    # Fallback to legacy system for full backward compatibility
+    return get_agent(agent_id)
 
 
 def verify_bearer(
@@ -155,7 +276,9 @@ async def _handle_input(user_input: UserInput, agent: AgentGraph) -> tuple[dict[
 
 @router.post("/{agent_id}/invoke")
 @router.post("/invoke")
-async def invoke(user_input: UserInput, agent_id: str = DEFAULT_AGENT) -> ChatMessage:
+async def invoke(
+    user_input: UserInput, request: Request = None, agent_id: str = DEFAULT_AGENT
+) -> ChatMessage:
     """
     Invoke an agent with user input to retrieve a final response.
 
@@ -169,7 +292,7 @@ async def invoke(user_input: UserInput, agent_id: str = DEFAULT_AGENT) -> ChatMe
     # in interrupt-agent, or a tool step in research-assistant), it's omitted. Arguably,
     # you'd want to include it. You could update the API to return a list of ChatMessages
     # in that case.
-    agent: AgentGraph = get_agent(agent_id)
+    agent: AgentGraph = get_agent_with_service(agent_id, request)
     kwargs, run_id = await _handle_input(user_input, agent)
 
     try:
@@ -195,14 +318,14 @@ async def invoke(user_input: UserInput, agent_id: str = DEFAULT_AGENT) -> ChatMe
 
 
 async def message_generator(
-    user_input: StreamInput, agent_id: str = DEFAULT_AGENT
+    user_input: StreamInput, agent_id: str = DEFAULT_AGENT, request=None
 ) -> AsyncGenerator[str, None]:
     """
     Generate a stream of messages from the agent.
 
     This is the workhorse method for the /stream endpoint.
     """
-    agent: AgentGraph = get_agent(agent_id)
+    agent: AgentGraph = get_agent_with_service(agent_id, request)
     kwargs, run_id = await _handle_input(user_input, agent)
 
     try:
@@ -334,7 +457,9 @@ def _sse_response_example() -> dict[int | str, Any]:
     responses=_sse_response_example(),
 )
 @router.post("/stream", response_class=StreamingResponse, responses=_sse_response_example())
-async def stream(user_input: StreamInput, agent_id: str = DEFAULT_AGENT) -> StreamingResponse:
+async def stream(
+    user_input: StreamInput, request: Request = None, agent_id: str = DEFAULT_AGENT
+) -> StreamingResponse:
     """
     Stream an agent's response to a user input, including intermediate messages and tokens.
 
@@ -346,7 +471,7 @@ async def stream(user_input: StreamInput, agent_id: str = DEFAULT_AGENT) -> Stre
     Set `stream_tokens=false` to return intermediate messages but not token-by-token.
     """
     return StreamingResponse(
-        message_generator(user_input, agent_id),
+        message_generator(user_input, agent_id, request),
         media_type="text/event-stream",
     )
 
